@@ -75,7 +75,7 @@ private:
 byte framI2CAddress = 0x50; // Put this in globals
 	// Set maximum size of buffer used to write to and read from FRAM
 	// Do not exceed 0x80 (128) to prevent problems with maximum size structs in FramArray
-	static const byte _maxBufferSize = 0x80;
+	static const byte _maxBufferSize = 128;
 
 	// Used in constructor to set size of usable FRAM memory, reserving some bytes as a control block
 	unsigned long _topAddressForPartNumber[numberOfPartNumbers];
@@ -110,7 +110,7 @@ public:
 	framResult format();
 
 	void _readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer);
-	void _writeMemory(unsigned long address, unsigned int numberOfBytes, uint8_t *buffer);
+	void _writeMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer);
 
 };
 

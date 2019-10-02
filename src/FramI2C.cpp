@@ -51,7 +51,7 @@ FramI2C::FramI2C(framPartNumber partNumber): _partNumber(partNumber) // Add in I
 
 void FramI2C::_readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer)
 {
-//	Serial.print('.');
+	// Serial.print('.');
 	uint16_t framAddr = (uint16_t)address;
 	// Address only correct for 64 through 512 kbit devices
 	Wire.beginTransmission(framI2CAddress);
@@ -61,44 +61,41 @@ void FramI2C::_readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t 
 
 	Wire.endTransmission();
 
-uint8_t *buf = buffer;
+// uint8_t *buf = buffer;
 
-// Maximum request size of 32 bytes (30?)
+// Maximum request size of 32 bytes
 	Wire.requestFrom(framI2CAddress, (uint8_t)numberOfBytes);
 		for (byte i=0; i < numberOfBytes; i++) {
 			 buffer[i] = Wire.read();
 		}
 	Wire.endTransmission();
 
-// Serial.println();
-// for (byte i=0; i < numberOfBytes; i++) {
-// 	Serial.print(buffer[i]);
-// 	Serial.print(',');
+// for (uint8_t i=0; i < numberOfBytes; i++) {
+// 	Serial.write(buffer[i]);
+// //	Serial.print(',');
 // }
 // 	Serial.println();
 }
 
 
-void FramI2C::_writeMemory(unsigned long address, unsigned int numberOfBytes, uint8_t *buffer)
+void FramI2C::_writeMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer)
 {
-//Serial.print('+');
+	// Serial.print('+');
 	uint16_t framAddr = (uint16_t)address;
 	// Address only correct for 64 through 512 kbit devices
-//Serial.println(framI2CAddress);
+
 	Wire.beginTransmission(framI2CAddress);
 	Wire.write(framAddr >> 8);
 	Wire.write(framAddr & 0xFF);
-// Wire.write(framAddr);
-	//Wire.endTransmission();
 
-	//Wire.requestFrom(framI2CAddress, (uint8_t)numberOfBytes);
-	for (unsigned int i=0; i < numberOfBytes; i++) {
+
+	for (uint8_t i=0; i < numberOfBytes; i++) {
 		Wire.write(buffer[i]);
 	}
-Wire.endTransmission();
-/*	for (byte i=0; i < numberOfBytes; i++) {
-	Serial.print(buffer[i]);
-}*/
+	Wire.endTransmission();
+	// for (uint8_t i=0; i < numberOfBytes; i++) {
+	// Serial.write(buffer[i]);
+	// }
 }
 
 
@@ -194,7 +191,7 @@ framResult FramI2C::read(unsigned long startAddress, unsigned int numberOfBytes,
 		return framBadFinishAddress;
 	}
 // Read in 32 byte blocks due to wire requestFrom() limit
-  const uint8_t blockSize = 32;
+  const uint8_t blockSize = 30;
   byte* buf = buffer;
   unsigned long address = startAddress;
 
@@ -239,7 +236,7 @@ framResult FramI2C::write(unsigned long startAddress, unsigned int numberOfBytes
 	// _writeMemory(startAddress, numberOfBytes, buffer);
 
 	// Write in 32 byte blocks due to wire limit
-	  const uint8_t blockSize = 32;
+	  const uint8_t blockSize = 30;
 	  byte* buf = buffer;
 	  unsigned long address = startAddress;
 
