@@ -51,6 +51,7 @@ with the ability to pop push peek etc:
 	bool isEmpty();
 	bool isFull();
 
-
+As of Version 0.1.0, the ring array keeps track of its pointers in FRAM.
+Run initialize() to load the pointers before using the ring.
 
 

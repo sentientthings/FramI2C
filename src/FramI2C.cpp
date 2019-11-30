@@ -21,11 +21,12 @@
 
 // Modified for I2C and Particle by Robert Mawrey
 
-#include "application.h"
+#include "Particle.h"
 #include "FramI2C.h"
 
 FramI2C::FramI2C(framPartNumber partNumber): _partNumber(partNumber) // Add in I2C address later
 {
+Serial1.begin(115200);
 //	_topAddressForPartNumber[MB85RC16]		= 0x0007FFUL;
 	_topAddressForPartNumber[MB85RC64]		= 0x001FFFUL;
 	_topAddressForPartNumber[MB85RC128A]	= 0x003FFFUL;
@@ -39,7 +40,6 @@ FramI2C::FramI2C(framPartNumber partNumber): _partNumber(partNumber) // Add in I
 	_baseAddress = 0x000000;
 	_bottomAddress = _baseAddress + _maxBufferSize;
 	_topAddress = _topAddressForPartNumber[_partNumber];
-//	_addressLength = _addressLengthForPartNumber[_partNumber];
 	_numberOfBuffers = (_topAddress - _bottomAddress + 1) / _maxBufferSize;
 	_nextFreeByte = _bottomAddress;
 }
@@ -49,9 +49,8 @@ FramI2C::FramI2C(framPartNumber partNumber): _partNumber(partNumber) // Add in I
 // PLATFORM SPECIFIC, LOW LEVEL METHODS
 //
 
-void FramI2C::_readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer)
+void FramI2C::_readMemory(uint32_t address, uint8_t numberOfBytes, uint8_t *buffer)
 {
-	// Serial.print('.');
 	uint16_t framAddr = (uint16_t)address;
 	// Address only correct for 64 through 512 kbit devices
 	Wire.beginTransmission(framI2CAddress);
@@ -61,26 +60,17 @@ void FramI2C::_readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t 
 
 	Wire.endTransmission();
 
-// uint8_t *buf = buffer;
-
-// Maximum request size of 32 bytes
+	// Maximum request size of 32 bytes
 	Wire.requestFrom(framI2CAddress, (uint8_t)numberOfBytes);
-		for (byte i=0; i < numberOfBytes; i++) {
-			 buffer[i] = Wire.read();
-		}
+	for (byte i=0; i < numberOfBytes; i++) {
+		buffer[i] = Wire.read();
+	}
 	Wire.endTransmission();
-
-// for (uint8_t i=0; i < numberOfBytes; i++) {
-// 	Serial.write(buffer[i]);
-// //	Serial.print(',');
-// }
-// 	Serial.println();
 }
 
 
-void FramI2C::_writeMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer)
+void FramI2C::_writeMemory(uint32_t address, uint8_t numberOfBytes, uint8_t *buffer)
 {
-	// Serial.print('+');
 	uint16_t framAddr = (uint16_t)address;
 	// Address only correct for 64 through 512 kbit devices
 
@@ -93,12 +83,7 @@ void FramI2C::_writeMemory(unsigned long address, uint8_t numberOfBytes, uint8_t
 		Wire.write(buffer[i]);
 	}
 	Wire.endTransmission();
-	// for (uint8_t i=0; i < numberOfBytes; i++) {
-	// Serial.write(buffer[i]);
-	// }
 }
-
-
 
 //
 // PLATFORM INDEPENDENT, HIGH LEVEL METHODS
@@ -112,7 +97,7 @@ framResult FramI2C::begin()
   }
   Wire.beginTransmission(framI2CAddress);
   byte response = Wire.endTransmission();
-// Serial.println(response);
+
   if (response == 0)
   {
 	  return framOK;
@@ -136,15 +121,20 @@ byte FramI2C::getMaxBufferSize()
 }
 
 
-unsigned long FramI2C::getBottomAddress()
+uint32_t FramI2C::getBottomAddress()
 {
 	return _bottomAddress;
 }
 
 
-unsigned long FramI2C::getTopAddress()
+uint32_t FramI2C::getTopAddress()
 {
 	return _topAddress;
+}
+
+uint32_t FramI2C::getNextFreeByte()
+{
+	return _nextFreeByte;
 }
 
 
@@ -156,19 +146,17 @@ byte FramI2C::getControlBlockSize()
 
 void FramI2C::writeControlBlock(uint8_t *buffer)
 {
-	// _writeMemory(_baseAddress, _maxBufferSize, buffer);
-  write((unsigned long) _baseAddress, (unsigned int) _maxBufferSize, buffer);
+  write((uint32_t) _baseAddress, (unsigned int) _maxBufferSize, buffer);
 }
 
 
 void FramI2C::readControlBlock(uint8_t *buffer)
 {
-	// _readMemory(_baseAddress, _maxBufferSize, buffer);
-  read((unsigned long) _baseAddress, (unsigned int) _maxBufferSize, buffer);
+  read((uint32_t) _baseAddress, (unsigned int) _maxBufferSize, buffer);
 }
 
 
-framResult FramI2C::read(unsigned long startAddress, unsigned int numberOfBytes, byte *buffer)
+framResult FramI2C::read(uint32_t startAddress, unsigned int numberOfBytes, byte *buffer)
 {
 	// Copies numberOfBytes bytes from FRAM (starting at startAddress) into buffer (starting at 0)
 	// Returns result code
@@ -190,10 +178,10 @@ framResult FramI2C::read(unsigned long startAddress, unsigned int numberOfBytes,
 	{
 		return framBadFinishAddress;
 	}
-// Read in 32 byte blocks due to wire requestFrom() limit
+// Read in 30 byte blocks due to wire requestFrom() limit
   const uint8_t blockSize = 30;
   byte* buf = buffer;
-  unsigned long address = startAddress;
+  uint32_t address = startAddress;
 
   while (numberOfBytes >= blockSize)
   {
@@ -210,7 +198,7 @@ framResult FramI2C::read(unsigned long startAddress, unsigned int numberOfBytes,
 }
 
 
-framResult FramI2C::write(unsigned long startAddress, unsigned int numberOfBytes, byte *buffer)
+framResult FramI2C::write(uint32_t startAddress, unsigned int numberOfBytes, byte *buffer)
 {
 	// Copies numberOfBytes bytes from buffer (starting at 0) into FRAM (starting at startAddress)
 	// Returns result code
@@ -238,7 +226,7 @@ framResult FramI2C::write(unsigned long startAddress, unsigned int numberOfBytes
 	// Write in 32 byte blocks due to wire limit
 	  const uint8_t blockSize = 30;
 	  byte* buf = buffer;
-	  unsigned long address = startAddress;
+	  uint32_t address = startAddress;
 
 	  while (numberOfBytes >= blockSize)
 	  {
@@ -256,8 +244,9 @@ framResult FramI2C::write(unsigned long startAddress, unsigned int numberOfBytes
 }
 
 
-unsigned long FramI2C::allocateMemory(unsigned long numberOfBytes, framResult& result)
+uint32_t FramI2C::allocateMemory(uint32_t numberOfBytes, framResult& result)
 {
+
 	if ((_nextFreeByte + numberOfBytes) < _topAddress)
 	{
 		uint16_t base = _nextFreeByte;
@@ -277,7 +266,6 @@ framResult FramI2C::format()
 {
 	// Fills FRAM with 0 but does NOT overwrite control block
 	// Returns result code from framWrite function, or framOK if format is successful
-
 	byte buffer[_maxBufferSize];
 
 	for (byte i = 0; i < _maxBufferSize; i++)
@@ -286,7 +274,7 @@ framResult FramI2C::format()
 	}
 
 	framResult result = framOK;
-	unsigned long i = _bottomAddress;
+	uint32_t i = _bottomAddress;
 	while ((i < _topAddress) && (result == framOK))
 	{
 		result = write(i, _maxBufferSize, buffer);
@@ -296,7 +284,9 @@ framResult FramI2C::format()
 }
 
 
-FramI2CArray::FramI2CArray(FramI2C& f, unsigned long numberOfElements, byte sizeOfElement, framResult &result): _f(f), _numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement)
+FramI2CArray::FramI2CArray(FramI2C& f, uint32_t numberOfElements, byte sizeOfElement, framResult &result): 
+		_f(f), _numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement)
+		
 {
 	// Creates array in FRAM
 	// Calculates and allocates required memory
@@ -314,11 +304,10 @@ FramI2CArray::FramI2CArray(FramI2C& f, unsigned long numberOfElements, byte size
 		result = framArrayElementTooBig;
 		_startAddress = 0;
 	}
-
 }
 
 
-void FramI2CArray::readElement(unsigned long index, byte *buffer, framResult &result)
+void FramI2CArray::readElement(uint32_t index, byte *buffer, framResult &result)
 {
 	// Reads element from array in FRAM
 	// Returns result code
@@ -342,7 +331,8 @@ void FramI2CArray::readElement(unsigned long index, byte *buffer, framResult &re
 }
 
 
-void FramI2CArray::writeElement(unsigned long index, byte *buffer, framResult &result)
+
+void FramI2CArray::writeElement(uint32_t index, byte *buffer, framResult &result)
 {
 	// Writes element to array in FRAM
 	// Returns result code
@@ -366,59 +356,118 @@ void FramI2CArray::writeElement(unsigned long index, byte *buffer, framResult &r
 }
 
 
-unsigned long FramI2CArray::getStartAddress()
+uint32_t FramI2CArray::getStartAddress()
 {
 	return _startAddress;
 }
 
 // Ring_FramArray added by Mawrey
-
 // Function to wrap around (find the mod of) for the circular buffer
-unsigned long Ring_FramArray::myModulo(unsigned long a, unsigned long b)
+uint32_t Ring_FramArray::myModulo(uint32_t a, uint32_t b)
 {
 	int x;
 	x = (int)a % (int)b;
 	if (x>=0)
 	{
-		return (unsigned long)x;
+		return (uint32_t)x;
 	}
 	else
 	{
-		return (unsigned long)(x+b);
+		return (uint32_t)(x+b);
 	}
 }
 
-Ring_FramArray::Ring_FramArray(FramI2C& f, unsigned long numberOfElements, byte sizeOfElement, framResult &result): _f(f), _numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement)
+Ring_FramArray::Ring_FramArray(FramI2C& f, uint32_t numberOfElements, byte sizeOfElement, framResult &result): 
+	_f(f), _numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement)
 {
 	if (_sizeOfElement < _f.getMaxBufferSize())
 	{
-		_startAddress = _f.allocateMemory(_numberOfElements * _sizeOfElement, result);
-		_tailAddress = 0;
-		_headAddress = 0;
+		// The array size needs to be incremented so that there is room for one empty element
+		_numberOfElements = _numberOfElements + 1;
+		// allocateMemeory returns the base or start address and saves the new
+		// _nextFreeByte = _bottomAddress
+		// add sizeof(_pointers) to allocate 12 bytes to store the _pointer indices
+		_startAddress = _f.allocateMemory(_numberOfElements * _sizeOfElement + sizeof(_pointers), result);
+		_ringEndAddress = _f.getNextFreeByte();
+		// if (result==framOK)
+		// {
+		// 	_pointersAddress = _f.getBottomAddress() - (uint32_t)sizeof(_pointers);
+
+		// 	// Load pointers from FRAM
+		// 	getPointers();
+		// 	// Check for initialization or existance of pointers
+		// 	// Rule to check _pointers.pointerCheck = _pointersAddress+_pointers.tail+pointers.head
+		// 	uint32_t check = _pointersAddress + _pointers.tail + _pointers.head;
+		// 	if (check==_pointers.pointerCheck)
+		// 	{
+		// 		// Not first run so initialize from FRAM
+		// 		_tailAddress = _pointers.tail;
+		// 		_headAddress = _pointers.head;
+		// 	}
+		// 	else
+		// 	{
+		// 		// First run
+		// 		_tailAddress = 0;
+		// 		_headAddress = 0;
+		// 		setPointers();				
+		// 	}
+		// }
 	}
 	else
 	{
 		result = framArrayElementTooBig;
+		// Add checks in the other functions to use start address
 		_startAddress = 0;
-		_tailAddress = 0;
-		_headAddress = 0;
+		// _tailAddress = 0;
+		// _headAddress = 0;
 	}
-
 }
 
-unsigned long Ring_FramArray::getStartAddress()
+void Ring_FramArray::initialize()
+{
+	// if (result==framOK)
+	// {
+		if (!Wire.isEnabled())
+		{
+			Wire.begin();
+		}
+
+		_pointersAddress = _ringEndAddress - (uint32_t)sizeof(_pointers);
+
+		// Load pointers from FRAM
+		getPointers();
+		// Check for initialization or existance of pointers
+		// Rule to check _pointers.pointerCheck = _pointersAddress+_pointers.tail+pointers.head
+		uint32_t check = _pointersAddress + _pointers.tail + _pointers.head;
+		if (check==_pointers.pointerCheck)
+		{
+			// Not first run so initialize from FRAM
+			_tailAddress = _pointers.tail;
+			_headAddress = _pointers.head;
+		}
+		else
+		{
+			// First run
+			_tailAddress = 0;
+			_headAddress = 0;			
+		}
+		setPointers();
+	// }
+}
+
+uint32_t Ring_FramArray::getStartAddress()
 {
 	return _startAddress;
 }
 
 bool Ring_FramArray::popFirstElement(byte *buffer)
 {
-	if (!isEmpty())
+	if (!isEmpty()&&!(_startAddress==0))
 	{
-//		_tailAddress = myModulo(_tailAddress,_numberOfElements);
 		_f.read(_startAddress + (_tailAddress * _sizeOfElement), _sizeOfElement, buffer);
 		_tailAddress++;
 		_tailAddress = myModulo(_tailAddress,_numberOfElements);
+		setPointers();
 		return true;
 	}
 	else
@@ -427,15 +476,31 @@ bool Ring_FramArray::popFirstElement(byte *buffer)
 	}
 }
 
+
+bool Ring_FramArray::pop(byte *buffer)
+{
+	if (!isEmpty()&&!(_startAddress==0))
+	{
+		_f.read(_startAddress + (_tailAddress * _sizeOfElement), _sizeOfElement, buffer);
+		_tailAddress++;
+		_tailAddress = myModulo(_tailAddress,_numberOfElements);
+		setPointers();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 bool Ring_FramArray::popLastElement(byte *buffer)
 {
-	if (!isEmpty())
+	if (!isEmpty()&&!(_startAddress==0))
 	{
-//		_tailAddress = myModulo(_tailAddress,_numberOfElements);
 		_f.read(_startAddress + (myModulo(_headAddress-1,_numberOfElements) * _sizeOfElement), _sizeOfElement, buffer);
 		_headAddress--;
 		_headAddress = myModulo(_headAddress,_numberOfElements);
+		setPointers();		
 		return true;
 	}
 	else
@@ -443,38 +508,54 @@ bool Ring_FramArray::popLastElement(byte *buffer)
 		return false;
 	}
 }
+
 
 // Write new element to ring and overwrite if full
 void Ring_FramArray::pushElement(byte *buffer)
 {
 	if (!isFull())
 	{
-//Serial.println("Not full "+String(_tailAddress)+":"+String(_headAddress));
 		_f.write(_startAddress + (_headAddress * _sizeOfElement), _sizeOfElement, buffer);
 		_headAddress++;
 		_headAddress = myModulo(_headAddress,_numberOfElements);
 	}
 	else
 	{
-//Serial.println("Full "+String(_tailAddress)+":"+String(_headAddress));
 		_f.write(_startAddress + (_headAddress * _sizeOfElement), _sizeOfElement, buffer);
 		_headAddress++;
 		_tailAddress++;
 		_tailAddress = myModulo(_tailAddress,_numberOfElements);
 		_headAddress = myModulo(_headAddress,_numberOfElements);
 	}
-
+	setPointers();
 }
 
 
+// Write new element to ring and overwrite if full
+void Ring_FramArray::push(byte *buffer)
+{
+	if (!isFull())
+	{
+		_f.write(_startAddress + (_headAddress * _sizeOfElement), _sizeOfElement, buffer);
+		_headAddress++;
+		_headAddress = myModulo(_headAddress,_numberOfElements);
+	}
+	else
+	{
+		_f.write(_startAddress + (_headAddress * _sizeOfElement), _sizeOfElement, buffer);
+		_headAddress++;
+		_tailAddress++;
+		_tailAddress = myModulo(_tailAddress,_numberOfElements);
+		_headAddress = myModulo(_headAddress,_numberOfElements);
+	}
+	setPointers();
+}
+
 bool Ring_FramArray::peekFirstElement(byte *buffer)
 {
-	if (!isEmpty())
+	if (!isEmpty()&&!(_startAddress==0))
 	{
-//		_tailAddress = myModulo(_tailAddress,_numberOfElements);
 		_f.read(_startAddress + (_tailAddress * _sizeOfElement), _sizeOfElement, buffer);
-		//_tailAddress++;
-		//_tailAddress = myModulo(_tailAddress,_numberOfElements);
 		return true;
 	}
 	else
@@ -485,9 +566,8 @@ bool Ring_FramArray::peekFirstElement(byte *buffer)
 
 bool Ring_FramArray::peekLastElement(byte *buffer)
 {
-	if (!isEmpty())
+	if (!isEmpty()&&!(_startAddress==0))
 	{
-
 		_f.read(_startAddress + (myModulo(_headAddress-1,_numberOfElements) * _sizeOfElement), _sizeOfElement, buffer);
 
 		return true;
@@ -498,32 +578,35 @@ bool Ring_FramArray::peekLastElement(byte *buffer)
 	}
 }
 
+
 void Ring_FramArray::clearArray()
 {
-	// Fills the array with 0
-
-	byte buffer[_sizeOfElement];
-
-	for (byte i = 0; i < _sizeOfElement; i++)
+	if (!(_startAddress==0))
 	{
-		buffer[i] = 0;
-	}
+		// Fills the array with 0
+		byte buffer[_sizeOfElement];
 
-Serial.println();
-	framResult result;
-	unsigned long i = 0;
-	while (i < _numberOfElements)
-	{
-		result = _f.write(_startAddress + (i * _sizeOfElement), _sizeOfElement, (uint8_t*)&buffer);
-		i++;
+		for (byte i = 0; i < _sizeOfElement; i++)
+		{
+			buffer[i] = 0;
+		}
+
+		framResult result;
+		uint32_t i = 0;
+		while (i < _numberOfElements)
+		{
+			result = _f.write(_startAddress + (i * _sizeOfElement), _sizeOfElement, (uint8_t*)&buffer);
+			i++;
+		}
+		_tailAddress = 0;
+		_headAddress = 0;
+		setPointers();		
 	}
-Serial.println();
 
 }
 
 bool Ring_FramArray::isEmpty()
 {
-//Serial1.println(String(_tailAddress)+":"+String(_headAddress)+" ");
 	if (_tailAddress == _headAddress)
 	{
 		return true;
@@ -536,7 +619,7 @@ bool Ring_FramArray::isEmpty()
 
 bool Ring_FramArray::isFull()
 {
-	unsigned long inc = myModulo(_headAddress+1,_numberOfElements);
+	uint32_t inc = myModulo(_headAddress+1,_numberOfElements);
 	if (inc == _tailAddress)
 	{
 		return true;
@@ -547,23 +630,50 @@ bool Ring_FramArray::isFull()
 	}
 }
 
-;
-void Ring_FramArray::getIndices(unsigned long *startAdd, unsigned long *endAdd)
+
+void Ring_FramArray::getIndices(uint32_t *startAdd, uint32_t *endAdd)
 {
 	*startAdd = _tailAddress;
 	*endAdd = _headAddress;
 }
 
-bool Ring_FramArray::setIndices(unsigned long startAddress, unsigned long endAddress)
+// Careful using this as the Indices/Pointers are kept track of automatically
+bool Ring_FramArray::setIndices(uint32_t startAddress, uint32_t endAddress)
 {
 	if (((startAddress>=0)&&(startAddress<_numberOfElements)) && ((endAddress>=0)&&(endAddress<_numberOfElements)))
 	{
 		_tailAddress = startAddress;
 		_headAddress = endAddress;
+		setPointers();
 		return true;
 	}
 	else
 	{
 		return false;
 	}
+}
+
+void Ring_FramArray::setPointers()
+{
+	if (!(_startAddress==0))
+	{
+		_pointers.head = _headAddress;
+		_pointers.tail = _tailAddress;
+		// Calculate the check pointer
+		_pointers.pointerCheck = _pointersAddress + _pointers.tail + _pointers.head;
+		// Save pointers to fram
+		_f.write(_pointersAddress, sizeof(_pointers),(uint8_t*)&_pointers);
+	}
+}
+
+void Ring_FramArray::getPointers()
+{
+_pointers.tail=99;
+_pointers.head=100;
+
+framResult checkresult;
+	//read(uint32_t startAddress, unsigned int numberOfBytes, byte *buffer)
+	checkresult = _f.read(_pointersAddress, sizeof(_pointers), (uint8_t*)&_pointers);
+	// _headAddress = _pointers.head;
+	// _tailAddress = _pointers.tail;
 }

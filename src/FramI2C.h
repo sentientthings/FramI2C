@@ -20,17 +20,13 @@
 	git@hackscribble.com | http://www.hackscribble.com | http://www.twitter.com/hackscribble
 
 	Modified to support Particle Photon and Ring_FramArray class added by Mawrey 5 May 2017
-	Modified for I2C October 2018
+	Modified for I2C October 2018 and November 2019
 */
-
-// #ifndef FERRO_I2C_H
-// #define FERRO_I2C_H_H
 
 #ifndef FramI2C_h
 #define FramI2C_h
 
-#include "application.h"
-
+#include "Particle.h"
 
 // MB85RC part numbers
 
@@ -71,27 +67,21 @@ class FramI2C
 private:
 
 	framPartNumber _partNumber;
-//	byte framI2CAddress = 0x50; // Put this in globals as it is part of IoTNode jumpers
-byte framI2CAddress = 0x50; // Put this in globals
+	byte framI2CAddress = 0x50; // Put this in globals
 	// Set maximum size of buffer used to write to and read from FRAM
 	// Do not exceed 0x80 (128) to prevent problems with maximum size structs in FramArray
 	static const byte _maxBufferSize = 128;
 
 	// Used in constructor to set size of usable FRAM memory, reserving some bytes as a control block
-	unsigned long _topAddressForPartNumber[numberOfPartNumbers];
-//	framAddressLength _addressLengthForPartNumber[numberOfPartNumbers];
-//	framAddressLength _addressLength;
-//	byte _densityCode[numberOfPartNumbers];
-	unsigned long _baseAddress;
-	unsigned long _bottomAddress;
-	unsigned long _topAddress;
-	unsigned long _numberOfBuffers;
+	uint32_t _topAddressForPartNumber[numberOfPartNumbers];
+	uint32_t _baseAddress;
+	uint32_t _bottomAddress;
+	uint32_t _topAddress;
+	uint32_t _numberOfBuffers;
 
 	// FRAM current next byte to allocate
-	unsigned long _nextFreeByte;
+	uint32_t _nextFreeByte;
 
-//	void _readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer);
-//	void _writeMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer);
 
 public:
 
@@ -99,18 +89,19 @@ public:
 	framResult begin();
 	framPartNumber getPartNumber();
 	byte getMaxBufferSize();
-	unsigned long getBottomAddress();
-	unsigned long getTopAddress();
+	uint32_t getBottomAddress();
+	uint32_t getTopAddress();
+	uint32_t getNextFreeByte();
 	byte getControlBlockSize();
 	void writeControlBlock(byte *buffer);
 	void readControlBlock(byte *buffer);
-	framResult read(unsigned long startAddress, unsigned int numberOfBytes, byte *buffer);
-	framResult write(unsigned long startAddress, unsigned int numberOfBytes, byte *buffer);
-	unsigned long allocateMemory(unsigned long numberOfBytes, framResult& result);
+	framResult read(uint32_t startAddress, unsigned int numberOfBytes, byte *buffer);
+	framResult write(uint32_t startAddress, unsigned int numberOfBytes, byte *buffer);
+	uint32_t allocateMemory(uint32_t numberOfBytes, framResult& result);
 	framResult format();
 
-	void _readMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer);
-	void _writeMemory(unsigned long address, uint8_t numberOfBytes, uint8_t *buffer);
+	void _readMemory(uint32_t address, uint8_t numberOfBytes, uint8_t *buffer);
+	void _writeMemory(uint32_t address, uint8_t numberOfBytes, uint8_t *buffer);
 
 };
 
@@ -119,54 +110,80 @@ class FramI2CArray
 {
 private:
 
-	unsigned long _numberOfElements;
+	uint32_t _numberOfElements;
 	byte _sizeOfElement;
-	unsigned long _startAddress;
+	uint32_t _startAddress;
 	FramI2C& _f;
 
 public:
 
-	FramI2CArray(FramI2C& f, unsigned long numberOfElements, byte sizeOfElement, framResult &result);
-	void readElement(unsigned long index, byte *buffer, framResult &result);
-	void writeElement(unsigned long index, byte *buffer, framResult &result);
-	unsigned long getStartAddress();
+	FramI2CArray(FramI2C& f, uint32_t numberOfElements, byte sizeOfElement, framResult &result);
+	// Pass by pointer
+	void readElement(uint32_t index, byte *buffer, framResult &result);
+
+	// Pass by pointer
+	void writeElement(uint32_t index, byte *buffer, framResult &result);
+
+	uint32_t getStartAddress();
 
 };
 
 // Ring buffer class added by Mawrey
-
 class Ring_FramArray
 {
 private:
-
-
-	unsigned long _numberOfElements;
+	uint32_t _numberOfElements;
 	byte _sizeOfElement;
-	unsigned long _startAddress;
+	uint32_t _startAddress;
 	FramI2C& _f;
-	unsigned long _tailAddress;
-	unsigned long _headAddress;
-	unsigned long getStartAddress();
-	unsigned long myModulo(unsigned long a, unsigned long b);
-
+	uint32_t _tailAddress;
+	uint32_t _headAddress;
+	uint32_t _ringEndAddress;
+	uint32_t getStartAddress();
+	uint32_t myModulo(uint32_t a, uint32_t b);
+	// Struct for tail head and validity
+	// The ring array keeps track of its own pointers in FRAM
+	typedef struct
+	{
+	uint32_t pointerCheck;
+	uint32_t tail;
+	uint32_t head;
+	}addr_t;
+	addr_t _pointers;
+	uint32_t _pointersAddress;
+	void setPointers();
+	void getPointers();
 
 public:
 
-	Ring_FramArray(FramI2C& f, unsigned long numberOfElements, byte sizeOfElement, framResult &result);
+	Ring_FramArray(FramI2C& f, uint32_t numberOfElements, byte sizeOfElement, framResult &result);
 
-	bool popFirstElement(byte *buffer);
-	bool popLastElement(byte *buffer);
-	void pushElement(byte *buffer);
-	bool peekFirstElement(byte *buffer);
-	bool peekLastElement(byte *buffer);
+	void initialize();
+
+	// Pop first element by default
+	bool pop(byte *buffer);
+	// Circular buffer overwrites when full!
+	void push(byte *buffer);
+
 	void clearArray();
 	bool isEmpty();
 	bool isFull();
+	
+	bool popFirstElement(byte *buffer);
 
-// Call this using xxxx.getIndices(unsigned long &startadd, unsigned long &endadd);
-	void getIndices(unsigned long *startAdd, unsigned long *endAdd);
-	bool setIndices(unsigned long startAddress, unsigned long endAddress);
+	bool popLastElement(byte *buffer);
 
+	void pushElement(byte *buffer);
+
+	bool peekFirstElement(byte *buffer);
+
+	bool peekLastElement(byte *buffer);
+
+
+	// Call this using xxxx.getIndices(uint32_t &startadd, uint32_t &endadd);
+	void getIndices(uint32_t *startAdd, uint32_t *endAdd);
+	// Use with CAUTION as the Fram array keeps track of its own pointers in Fram
+	bool setIndices(uint32_t startAddress, uint32_t endAddress);
 };
 
 #endif
