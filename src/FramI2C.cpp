@@ -26,7 +26,6 @@
 
 FramI2C::FramI2C(framPartNumber partNumber): _partNumber(partNumber) // Add in I2C address later
 {
-Serial1.begin(115200);
 //	_topAddressForPartNumber[MB85RC16]		= 0x0007FFUL;
 	_topAddressForPartNumber[MB85RC64]		= 0x001FFFUL;
 	_topAddressForPartNumber[MB85RC128A]	= 0x003FFFUL;
