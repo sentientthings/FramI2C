@@ -284,7 +284,7 @@ framResult FramI2C::format()
 
 
 FramI2CArray::FramI2CArray(FramI2C& f, uint32_t numberOfElements, byte sizeOfElement, framResult &result): 
-		_f(f), _numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement)
+		_numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement), _f(f)
 		
 {
 	// Creates array in FRAM
@@ -377,7 +377,7 @@ uint32_t Ring_FramArray::myModulo(uint32_t a, uint32_t b)
 }
 
 Ring_FramArray::Ring_FramArray(FramI2C& f, uint32_t numberOfElements, byte sizeOfElement, framResult &result): 
-	_f(f), _numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement)
+	_numberOfElements(numberOfElements), _sizeOfElement(sizeOfElement), _f(f)
 {
 	if (_sizeOfElement < _f.getMaxBufferSize())
 	{
