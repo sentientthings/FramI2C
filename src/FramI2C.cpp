@@ -50,38 +50,44 @@ FramI2C::FramI2C(framPartNumber partNumber): _partNumber(partNumber) // Add in I
 
 void FramI2C::_readMemory(uint32_t address, uint8_t numberOfBytes, uint8_t *buffer)
 {
-	uint16_t framAddr = (uint16_t)address;
-	// Address only correct for 64 through 512 kbit devices
-	Wire.beginTransmission(framI2CAddress);
+	WITH_LOCK(Wire)
+	{
+		uint16_t framAddr = (uint16_t)address;
+		// Address only correct for 64 through 512 kbit devices
+		Wire.beginTransmission(framI2CAddress);
 
-	Wire.write(framAddr >> 8);
-	Wire.write(framAddr & 0xFF);
+		Wire.write(framAddr >> 8);
+		Wire.write(framAddr & 0xFF);
 
-	Wire.endTransmission();
+		Wire.endTransmission();
 
-	// Maximum request size of 32 bytes
-	Wire.requestFrom(framI2CAddress, (uint8_t)numberOfBytes);
-	for (byte i=0; i < numberOfBytes; i++) {
-		buffer[i] = Wire.read();
+		// Maximum request size of 32 bytes
+		Wire.requestFrom(framI2CAddress, (uint8_t)numberOfBytes);
+		for (byte i=0; i < numberOfBytes; i++) {
+			buffer[i] = Wire.read();
+		}
+		Wire.endTransmission();
 	}
-	Wire.endTransmission();
 }
 
 
 void FramI2C::_writeMemory(uint32_t address, uint8_t numberOfBytes, uint8_t *buffer)
 {
-	uint16_t framAddr = (uint16_t)address;
-	// Address only correct for 64 through 512 kbit devices
+	WITH_LOCK(Wire)
+	{	
+		uint16_t framAddr = (uint16_t)address;
+		// Address only correct for 64 through 512 kbit devices
 
-	Wire.beginTransmission(framI2CAddress);
-	Wire.write(framAddr >> 8);
-	Wire.write(framAddr & 0xFF);
+		Wire.beginTransmission(framI2CAddress);
+		Wire.write(framAddr >> 8);
+		Wire.write(framAddr & 0xFF);
 
 
-	for (uint8_t i=0; i < numberOfBytes; i++) {
-		Wire.write(buffer[i]);
+		for (uint8_t i=0; i < numberOfBytes; i++) {
+			Wire.write(buffer[i]);
+		}
+		Wire.endTransmission();
 	}
-	Wire.endTransmission();
 }
 
 //
@@ -575,6 +581,7 @@ bool Ring_FramArray::peekLastElement(byte *buffer)
 	{
 		return false;
 	}
+
 }
 
 
